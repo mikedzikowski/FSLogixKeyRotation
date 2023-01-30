@@ -1,10 +1,11 @@
 
 [CmdletBinding()]
 param (
-    [parameter(mandatory = $false)]$fslogixPath = "$env:ProgramFiles\FSLogix\Apps\frx.exe",
+    [parameter(mandatory = $false)]$fslogixPath = 'HKLM:\Software\FSLogix\Profiles',
     [parameter(mandatory = $false)]$key,
     [parameter(mandatory = $false)]$accountName,
-    [parameter(mandatory = $false)]$profileLocation = "C:\ProgramData\FSLogix\Cache"
+    [parameter(mandatory = $false)]$profileLocation = "C:\ProgramData\FSLogix\Cache",
+    [parameter(mandatory = $true)]$primaryEndpoint
 )
 
 $fslogixPath = 'HKLM:\Software\FSLogix\Profiles'
@@ -22,7 +23,7 @@ if( $testGroup2.Name -notcontains 'BuiltIn\Administrators'){
     Add-LocalGroupMember -Group 'FSLogix ODFC Exclude List' -Member 'Administrators' -ErrorAction SilentlyContinue | Out-Null
 }
 
-$connectionstring = '"DefaultEndpointsProtocol=https;' + "AccountName=$accountName;" + "AccountKey=$key;" + 'EndpointSuffix=core.usgovcloudapi.net"'
+$connectionstring = "DefaultEndpointsProtocol=https;" + "AccountName=$accountName;" + "AccountKey=$key;" + "EndpointSuffix=$primaryEndpoint"
 
 Start-Process -FilePath 'C:\Program Files\FSLogix\Apps\frx.exe' -ArgumentList "add-secure-key -key connectionstring -value $($connectionstring)"
 New-ItemProperty -Path $fslogixPath -Force -Name CCDLocations -PropertyType multistring -Value "type=azure,connectionString=|fslogix/connectionstring|"| Out-Null
