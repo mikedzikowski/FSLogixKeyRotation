@@ -38,6 +38,7 @@ foreach($machine in $sessionHosts)
     write-host $Vm
     $vms += $vm
 }
+$vms = "vmsmtpvap002"
 
 # get storage account key
 $sa = Get-AzStorageAccount -StorageAccountName $storageAcctName -ResourceGroupName $storageAcctRgName
@@ -47,7 +48,8 @@ $primaryEndpoint = ($endpoint.blob.Split("https://$($sa.storageAccountName).blob
 $accountName = $account
 
 $fileUris = @("https://raw.githubusercontent.com/mikedzikowski/FSLogixKeyRotation/main/New-FslogixKeyRotation.ps1")
-$key2Settings = @{"fileUris" = $fileUris; "commandToExecute" = "powershell -ExecutionPolicy Unrestricted -File New-FslogixKeyRotation.ps1 -key $($oldkeys[1].value) -primaryEndpoint $primaryEndpoint -accountName $accountName"}
+$key2Settings = @{"fileUris" = $fileUris; "commandToExecute" = "powershell -ExecutionPolicy Unrestricted -File New-FslogixKeyRotation.ps1 -key $($oldkeys[1].value) -primaryEndpoint $primaryEndpoint -accountName $accountName"};
+$settings = @{"timestamp" = (get-date).ToUniversalTime().ToString('yyMMddTHHmmss')};
 
 # Send out key2
 $vms | ForEach-Object -Parallel {
@@ -59,6 +61,7 @@ $vms | ForEach-Object -Parallel {
         -Publisher "Microsoft.Compute" `
         -ExtensionType "CustomScriptExtension" `
         -TypeHandlerVersion "1.10" `
+        -Settings $settings `
         -ProtectedSettings $key2Settings
 }
 
@@ -67,6 +70,7 @@ $rotateKey1 = New-AzStorageAccountKey -ResourceGroupName $sa.ResourceGroupName -
 Write-Host "Rotating: $($rotateKey1.Keys.keyname[0])"
 $newKey1 = Get-AzStorageAccountKey -ResourceGroupName $sa.ResourceGroupName -Name $sa.StorageAccountName
 $key1Settings = @{"fileUris" = $fileUris;"commandToExecute" = "powershell -ExecutionPolicy Unrestricted -File New-FslogixKeyRotation.ps1 -key $($newkey1[0].Value). -accountName $accountName -primaryEndpoint $primaryEndpoint"}
+$settings = @{"timestamp" = (get-date).ToUniversalTime().ToString('yyMMddTHHmmss')};
 
 # Send rotated key1 back out to AVD
 $vms | ForEach-Object -Parallel {
@@ -78,9 +82,10 @@ $vms | ForEach-Object -Parallel {
         -Publisher "Microsoft.Compute" `
         -ExtensionType "CustomScriptExtension" `
         -TypeHandlerVersion "1.10" `
+        -Settings $settings `
         -ProtectedSettings $key1Settings
 }
 
 # Rotate key2
-$rotateKey2 = New-AzStorageAccountKey -ResourceGroupName $sa.ResourceGroupName -Name $sa.StorageAccountName -KeyName key2 -Verbose
 Write-Host "Rotating: $($rotateKey2.Keys.keyname[1])"
+$rotateKey2 = New-AzStorageAccountKey -ResourceGroupName $sa.ResourceGroupName -Name $sa.StorageAccountName -KeyName key2 -Verbose
