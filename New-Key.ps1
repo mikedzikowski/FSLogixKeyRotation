@@ -68,7 +68,7 @@ $vms | ForEach-Object -Parallel {
 $rotateKey1 = New-AzStorageAccountKey -ResourceGroupName $sa.ResourceGroupName -Name $sa.StorageAccountName -KeyName key1 -Verbose
 Write-Host "Rotating: $($rotateKey1.Keys.keyname[0])"
 $newKey1 = Get-AzStorageAccountKey -ResourceGroupName $sa.ResourceGroupName -Name $sa.StorageAccountName
-$key1Settings = @{"fileUris" = $fileUris;"commandToExecute" = "powershell -ExecutionPolicy Unrestricted -File New-FslogixKeyRotation.ps1 -key $($newkey1[0].Value). -accountName $accountName -primaryEndpoint $primaryEndpoint"}
+$key1Settings = @{"fileUris" = $fileUris;"commandToExecute" = "powershell -ExecutionPolicy Unrestricted -File New-FslogixKeyRotation.ps1 -key $($newkey1[0].Value) -accountName $accountName -primaryEndpoint $primaryEndpoint"}
 $settings = @{"timestamp" = (get-date).ToUniversalTime().ToString('yyMMddTHHmmss')};
 
 # Send rotated key1 back out to AVD
