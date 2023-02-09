@@ -46,8 +46,8 @@ $endpoint = $sa.PrimaryEndpoints
 $primaryEndpoint = ($endpoint.blob.Split("https://$($sa.storageAccountName).blob.")[1]).trim('/')
 $accountName = $account
 
-$fileUris = @("https://raw.githubusercontent.com/mikedzikowski/FSLogixKeyRotationWithRunCommand/main/New-FslogixKeyRotation.ps1")
-$key2Settings = @{"fileUris" = $fileUris; "commandToExecute" = "powershell -ExecutionPolicy Unrestricted -File New-FslogixKeyRotation.ps1 -key $oldkeys.[1].value -primaryEndpoint $primaryEndpoint -accountName $accountName"}
+$fileUris = @("https://raw.githubusercontent.com/mikedzikowski/FSLogixKeyRotation/main/New-FslogixKeyRotation.ps1")
+$key2Settings = @{"fileUris" = $fileUris; "commandToExecute" = "powershell -ExecutionPolicy Unrestricted New-FslogixKeyRotation.ps1 -key $oldkeys.[1].value -primaryEndpoint $primaryEndpoint -accountName $accountName"}
 
 # Send out key2
 $vms | ForEach-Object -Parallel {
@@ -84,4 +84,3 @@ $vms | ForEach-Object -Parallel {
 # Rotate key2
 $rotateKey2 = New-AzStorageAccountKey -ResourceGroupName $sa.ResourceGroupName -Name $sa.StorageAccountName -KeyName key2 -Verbose
 Write-Host "Rotating: $($rotateKey2.Keys.keyname[1])"
-$newKey2 = Get-AzStorageAccountKey -ResourceGroupName $sa.ResourceGroupName -Name $sa.StorageAccountName
