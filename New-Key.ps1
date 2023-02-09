@@ -47,7 +47,7 @@ $primaryEndpoint = ($endpoint.blob.Split("https://$($sa.storageAccountName).blob
 $accountName = $account
 
 $fileUris = @("https://raw.githubusercontent.com/mikedzikowski/FSLogixKeyRotation/main/New-FslogixKeyRotation.ps1")
-$key2Settings = @{"fileUris" = $fileUris; "commandToExecute" = "powershell -ExecutionPolicy Unrestricted New-FslogixKeyRotation.ps1 -key $oldkeys.[1].value -primaryEndpoint $primaryEndpoint -accountName $accountName"}
+$key2Settings = @{"fileUris" = $fileUris; "commandToExecute" = "powershell -ExecutionPolicy Unrestricted -File New-FslogixKeyRotation.ps1 -key $($oldkeys[1].value) -primaryEndpoint $primaryEndpoint -accountName $accountName"}
 
 # Send out key2
 $vms | ForEach-Object -Parallel {
@@ -66,7 +66,7 @@ $vms | ForEach-Object -Parallel {
 $rotateKey1 = New-AzStorageAccountKey -ResourceGroupName $sa.ResourceGroupName -Name $sa.StorageAccountName -KeyName key1 -Verbose
 Write-Host "Rotating: $($rotateKey1.Keys.keyname[0])"
 $newKey1 = Get-AzStorageAccountKey -ResourceGroupName $sa.ResourceGroupName -Name $sa.StorageAccountName
-$key1Settings = @{"fileUris" = $fileUris;"commandToExecute" = "powershell -ExecutionPolicy Unrestricted -File New-FslogixKeyRotation.ps1 -key $newkey1 -accountName $accountName -primaryEndpoint $primaryEndpoint"}
+$key1Settings = @{"fileUris" = $fileUris;"commandToExecute" = "powershell -ExecutionPolicy Unrestricted -File New-FslogixKeyRotation.ps1 -key $($newkey1[0].Value). -accountName $accountName -primaryEndpoint $primaryEndpoint"}
 
 # Send rotated key1 back out to AVD
 $vms | ForEach-Object -Parallel {
