@@ -38,7 +38,6 @@ foreach($machine in $sessionHosts)
     write-host $Vm
     $vms += $vm
 }
-$vms = "vmsmtpvap002"
 
 # get storage account key
 $sa = Get-AzStorageAccount -StorageAccountName $storageAcctName -ResourceGroupName $storageAcctRgName
