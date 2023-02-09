@@ -1,8 +1,11 @@
 [CmdletBinding()]
 param (
-    [parameter(mandatory = $false)]$HostpoolName = "hp-fs-peo-va-d-01",
-    [parameter(mandatory = $false)]$Environment = "AzureUSGovernment",
-    [parameter(mandatory = $false)]$location = 'usgovvirginia'
+    [parameter(mandatory = $true)]$HostpoolName,
+    [parameter(mandatory = $true)]$Environment,
+    [parameter(mandatory = $true)]$location,
+    [parameter(mandatory = $true)]$storageAcctName,
+    [parameter(mandatory = $true)]$storageAcctRgName,
+    [parameter(mandatory = $true)]$account
 )
 
 # Connect using a Managed Service Identity
@@ -36,34 +39,49 @@ foreach($machine in $sessionHosts)
     $vms += $vm
 }
 
-# get updated storage account key
-$sa = Get-AzStorageAccount -StorageAccountName avdtest -ResourceGroupName NetworkWatcherRG
-
-$rotateDate = Get-AzStorageAccountKey -ResourceGroupName NetworkWatcherRG -Name $sa.StorageAccountName
-foreach($saKey in $rotateDate)
-{
-    if($saKey.CreationTime -lt (Get-date).addHours(-1))
-    {
-        New-AzStorageAccountKey -ResourceGroupName $sa.ResourceGroupName -Name $sa.StorageAccountName -KeyName $saKey.KeyName -Verbose
-    }
-}
-$key = (Get-AzStorageAccountKey -ResourceGroupName NetworkWatcherRG -Name $sa.StorageAccountName).Value[0]
+# get storage account key
+$sa = Get-AzStorageAccount -StorageAccountName $storageAcctName -ResourceGroupName $storageAcctRgName
+$oldKeys = Get-AzStorageAccountKey -ResourceGroupName $sa.ResourceGroupName -Name $sa.StorageAccountName
 $endpoint = $sa.PrimaryEndpoints
 $primaryEndpoint = ($endpoint.blob.Split("https://$($sa.storageAccountName).blob.")[1]).trim('/')
-$accountName = "test"
+$accountName = $account
 
 $fileUris = @("https://raw.githubusercontent.com/mikedzikowski/FSLogixKeyRotationWithRunCommand/main/New-FslogixKeyRotation.ps1")
-$Settings = @{"storageAccountName" = $storageAcctName; "storageAccountKey" = $storageKey; "fileUris" = $fileUris; "commandToExecute" = "powershell -ExecutionPolicy Unrestricted -File New-FslogixKeyRotation.ps1"}
+$key2Settings = @{"fileUris" = $fileUris; "commandToExecute" = "powershell -ExecutionPolicy Unrestricted -File New-FslogixKeyRotation.ps1 -key $oldkeys.[1].value -primaryEndpoint $primaryEndpoint -accountName $accountName"}
 
-#run command to run fslogix script
+# Send out key2
 $vms | ForEach-Object -Parallel {
-    $virtualMachine = (Get-AzVM -Name $_)
+    $virtualMachine = (Get-AzVM -VMName $_.split('.')[0])
     Set-AzVMExtension -ResourceGroupName $virtualMachine.ResourceGroupName `
-      -Location $virtualMachine.Location `
-      -VMName $virtualMachine.Name `
-      -Name "fslogix" `
-      -Publisher "Microsoft.Compute" `
-      -ExtensionType "CustomScriptExtension" `
-      -TypeHandlerVersion "1.10" `
-      -ProtectedSettings $Settings
-  }
+        -Location $virtualMachine.Location `
+        -VMName $virtualMachine.Name `
+        -Name "CustomScriptExtension" `
+        -Publisher "Microsoft.Compute" `
+        -ExtensionType "CustomScriptExtension" `
+        -TypeHandlerVersion "1.10" `
+        -ProtectedSettings $key2Settings
+}
+
+# Rotate key1
+$rotateKey1 = New-AzStorageAccountKey -ResourceGroupName $sa.ResourceGroupName -Name $sa.StorageAccountName -KeyName key1 -Verbose
+Write-Host "Rotating: $($rotateKey1.Keys.keyname[0])"
+$newKey1 = Get-AzStorageAccountKey -ResourceGroupName $sa.ResourceGroupName -Name $sa.StorageAccountName
+$key1Settings = @{"fileUris" = $fileUris;"commandToExecute" = "powershell -ExecutionPolicy Unrestricted -File New-FslogixKeyRotation.ps1 -key $newkey1 -accountName $accountName -primaryEndpoint $primaryEndpoint"}
+
+# Send rotated key1 back out to AVD
+$vms | ForEach-Object -Parallel {
+    $virtualMachine = (Get-AzVM -VMName $_.split('.')[0])
+    Set-AzVMExtension -ResourceGroupName $virtualMachine.ResourceGroupName `
+        -Location $virtualMachine.Location `
+        -VMName $virtualMachine.Name `
+        -Name "CustomScriptExtension" `
+        -Publisher "Microsoft.Compute" `
+        -ExtensionType "CustomScriptExtension" `
+        -TypeHandlerVersion "1.10" `
+        -ProtectedSettings $key1Settings
+}
+
+# Rotate key2
+$rotateKey2 = New-AzStorageAccountKey -ResourceGroupName $sa.ResourceGroupName -Name $sa.StorageAccountName -KeyName key2 -Verbose
+Write-Host "Rotating: $($rotateKey2.Keys.keyname[1])"
+$newKey2 = Get-AzStorageAccountKey -ResourceGroupName $sa.ResourceGroupName -Name $sa.StorageAccountName
